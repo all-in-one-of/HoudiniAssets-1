@@ -1,0 +1,70 @@
+import os
+
+#Choose the camera
+
+all_cams = hou.node("/obj").glob("cam*")
+
+desktop = hou.ui.curDesktop()
+scene_viewer = desktop.paneTabOfType(hou.paneTabType.SceneViewer)
+viewport = scene_viewer.curViewport()
+
+if len(all_cams)>0:
+    camera = hou.ui.selectNode(node_type_filter = hou.nodeTypeFilter.ObjCamera)
+    cam = hou.node(camera)
+else:
+    name = hou.ui.readInput("Enter camera name :", buttons=("OK", "Cancel"))
+    cam = hou.node("/obj").createNode("cam", name[1])
+    hou.GeometryViewport.saveViewToCamera(viewport, cam)
+    
+#Create comments
+    
+group = cam.parmTemplateGroup()
+
+if group.find("vcomment") > -1:
+    group.remove(group.find("vcomment"))
+    group.remove(group.findFolder("Comment"))
+
+folder = hou.FolderParmTemplate("OpenGL View", "Comment")
+parm = hou.StringParmTemplate("vcomment", "Comment", 1)
+parm.setTags({"editor": "1"})
+folder.addParmTemplate(parm)
+group.append(folder)
+cam.setParmTemplateGroup(group)
+
+commentCount = hou.ui.readInput("Number of Comments :", buttons=("Ok", "Cancel"))
+
+comments = []
+for i in range(0, int(commentCount[1])):
+    comments.append("Comment" + "_" + str(i))
+    
+commentInput = hou.ui.readMultiInput("Enter your Comment :", comments, buttons=("Ok", "Cancel"))  
+comment = "\n".join(commentInput[1])
+cam.parm("vcomment").set(comment)
+
+hou.GeometryViewport.setCamera(viewport, cam)
+
+#Create the flipbook
+
+cur_desktop = hou.ui.curDesktop()
+scene = cur_desktop.paneTabOfType(hou.paneTabType.SceneViewer)
+flipbook_options = scene.flipbookSettings().stash()
+
+flipbook_options.outputToMPlay(True)
+flipbook_options.useResolution(False)
+flipbook_options.cropOutMaskOverlay(False)
+flipbook_options.frameRange(hou.playbar.timelineRange())
+flipbook_options.outputZoom(100)
+
+#job = hou.getenv("JOB")
+#frame = hou.getenv("$F")
+#filename = hou.ui.readInput("Enter the flipbook filename :", buttons=("Ok", "Cancel"))
+#flipDir = job+"/"+"flip"+"/"
+#
+#if not os.path.exists(flipDir):
+#    os.makedirs(flipDir)
+#    
+#flipFile = job+"/"+"flip"+"/"+filename[1]
+#flipbook_options.output(flipFile)
+
+scene.flipbook(scene.curViewport(), flipbook_options)
+
